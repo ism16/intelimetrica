@@ -26,13 +26,13 @@ def write_to_psv(file_name: str, data: List[List[str]]) -> None:
     Writes a list to a psv file.
     """
     with open(file_name, 'w', encoding='utf-8', newline='') as psv_file:
-        writer = csv.writer(psv_file, delimiter='|')
+        writer = csv.writer(psv_file, delimiter='|', quoting=csv.QUOTE_NONE, quotechar=None)
         writer.writerows(data)
 
 
 def clean_data(data: List[List[str]]) -> Tuple[List[List[str]], List[List[str]]]:
     """
-    Cleans the data by removing the all lines not containing a separator.
+    Cleans the data by removing all lines not containing a separator.
     E.g. '~', ',', '\t'
     """
     clean_content = []
@@ -51,6 +51,25 @@ def clean_data(data: List[List[str]]) -> Tuple[List[List[str]], List[List[str]]]
     return clean_content, deleted_lines
 
 
+def add_double_quotes(data: List[List[str]]) -> List[List[str]]:
+    """
+    Adds double quotes to all non-empty values.
+    """
+    dq_data = []
+    indexes = data[0]
+    dq_data.append(indexes)
+    # dq_data = [f'"{el}"' for line in data for el in line if el != '']
+    for line in data[1:]:
+        aux = []
+        for el in line:
+            if el != '':
+                aux.append(f'"{el}"')
+            else:
+                aux.append(el)
+        dq_data.append(aux)
+    return dq_data
+
+
 @task
 def extract(file_name):
     return read_to_list(file_name)
@@ -59,6 +78,7 @@ def extract(file_name):
 @task
 def transform(data):
     clean, _ = clean_data(data)
+    clean = add_double_quotes(clean)
     return clean
 
 
