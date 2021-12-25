@@ -1,7 +1,9 @@
 import csv
+from prefect import Flow, task
+from typing import List, Tuple
 
 
-def read_csv(file_name):
+def read_csv(file_name: str) -> List[List[str]]:
     """
     Read a csv file and returns a list containing its lines.
     """
@@ -10,7 +12,7 @@ def read_csv(file_name):
         return list(reader)
 
 
-def read_to_list(file_name):
+def read_to_list(file_name: str) -> List[List[str]]:
     """
     Reads a non-binary file and returns a list its containing lines.
     """
@@ -19,7 +21,7 @@ def read_to_list(file_name):
     return file_list
 
 
-def write_to_psv(file_name, data):
+def write_to_psv(file_name: str, data: List[List[str]]) -> None:
     """
     Writes a list to a psv file.
     """
@@ -28,15 +30,15 @@ def write_to_psv(file_name, data):
         writer.writerows(data)
 
 
-if __name__ == '__main__':
-    # original_content = read_csv('starts_data.csv')
-    # indexes = original_content[1][0].split('~') # 37
-
-    original_content = read_to_list('starts_data.csv')
+def clean_data(data: List[List[str]]) -> Tuple[List[List[str]], List[List[str]]]:
+    """
+    Cleans the data by removing the all lines not containing a separator.
+    E.g. '~', ',', '\t'
+    """
     clean_content = []
     deleted_lines = []
 
-    for el in original_content:
+    for el in data:
         if el.find('~') != -1:
             clean_content.append(el.strip("\n").split('~'))
         elif el.find(',') != -1:
@@ -45,8 +47,30 @@ if __name__ == '__main__':
             clean_content.append(el.strip("\n").split('\t'))
         else:
             deleted_lines.append(el)
+    
+    return clean_content, deleted_lines
 
-    # [el for el in clean_content if len(el) != 37]
-    indexes = clean_content[0]
-    write_to_psv('example.psv', clean_content)
 
+@task
+def extract(file_name):
+    return read_to_list(file_name)
+
+
+@task
+def transform(data):
+    clean, _ = clean_data(data)
+    return clean
+
+
+@task
+def load(file_name, data):
+    write_to_psv(file_name, data)
+
+
+if __name__ == '__main__':
+    with Flow('clean_intelimetrica_data') as flow:
+        data = extract('starts_data.csv')
+        tdata = transform(data)
+        load('starts_data.psv', tdata)
+
+    flow.run()
